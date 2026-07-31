@@ -104,10 +104,12 @@ namespace Avalonia.Controls.Utils
         /// <summary>
         /// Gets the position of the element with the requested index on the primary axis, if realized.
         /// </summary>
+        /// <param name="index">The index of the element.</param>
+        /// <param name="spacing">The spacing between elements.</param>
         /// <returns>
         /// The position of the element, or NaN if the element is not realized.
         /// </returns>
-        public double GetElementU(int index)
+        public double GetElementU(int index, double spacing)
         {
             if (index < FirstIndex || _sizes is null)
                 return double.NaN;
@@ -120,7 +122,7 @@ namespace Avalonia.Controls.Utils
             var u = StartU;
 
             for (var i = 0; i < endIndex; ++i)
-                u += _sizes[i];
+                u += _sizes[i] + spacing;
 
             return u;
         }

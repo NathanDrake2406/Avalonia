@@ -51,6 +51,86 @@ namespace Avalonia.Controls.UnitTests
             AssertRealizedItems(target, itemsControl, 0, expectedCount);
         }
 
+        [Fact]
+        public void Spacing_Is_Applied_Between_Realized_Items_Vertically()
+        {
+            using var app = App();
+            var (target, scroll, itemsControl) = CreateTarget();
+            target.Spacing = 2;
+            Layout(target);
+
+            Assert.Equal(1198, scroll.Extent.Height);
+            Assert.Equal(0, target.ContainerFromIndex(0)!.Bounds.Top);
+            Assert.Equal(12, target.ContainerFromIndex(1)!.Bounds.Top);
+            Assert.Equal(24, target.ContainerFromIndex(2)!.Bounds.Top);
+            Assert.Equal(96, target.ContainerFromIndex(8)!.Bounds.Top);
+        }
+
+        [Fact]
+        public void Spacing_Is_Applied_Between_Realized_Items_Horizontally()
+        {
+            using var app = App();
+            var (target, scroll, itemsControl) = CreateTarget(orientation: Orientation.Horizontal);
+            target.Spacing = 2;
+            Layout(target);
+
+            // Items are 100 wide; extent = 100 * 100 + 99 * 2.
+            Assert.Equal(10198, scroll.Extent.Width);
+            Assert.Equal(0, target.ContainerFromIndex(0)!.Bounds.Left);
+
+            scroll.Offset = new Vector(200, 0);
+            Layout(target);
+
+            Assert.Equal(102, target.ContainerFromIndex(1)!.Bounds.Left);
+            Assert.Equal(204, target.ContainerFromIndex(2)!.Bounds.Left);
+        }
+
+        [Fact]
+        public void Changing_Spacing_Invalidates_Measure()
+        {
+            using var app = App();
+            var (target, scroll, itemsControl) = CreateTarget();
+
+            Assert.Equal(1000, scroll.Extent.Height);
+            Assert.Equal(10, target.ContainerFromIndex(1)!.Bounds.Top);
+
+            target.Spacing = 2;
+            Layout(target);
+
+            Assert.Equal(1198, scroll.Extent.Height);
+            Assert.Equal(12, target.ContainerFromIndex(1)!.Bounds.Top);
+        }
+
+        [Fact]
+        public void Spacing_Is_Applied_When_Scrolling()
+        {
+            using var app = App();
+            var (target, scroll, itemsControl) = CreateTarget();
+            target.Spacing = 2;
+            Layout(target);
+
+            scroll.Offset = new Vector(0, 200);
+            Layout(target);
+
+            Assert.Equal(1198, scroll.Extent.Height);
+            Assert.Equal(192, target.ContainerFromIndex(16)!.Bounds.Top);
+            Assert.Equal(204, target.ContainerFromIndex(17)!.Bounds.Top);
+        }
+
+        [Fact]
+        public void ScrollIntoView_Accounts_For_Spacing()
+        {
+            using var app = App();
+            var (target, scroll, itemsControl) = CreateTarget();
+            target.Spacing = 2;
+            Layout(target);
+
+            target.ScrollIntoView(50);
+
+            Assert.Equal(1198, scroll.Extent.Height);
+            Assert.Equal(600, target.ContainerFromIndex(50)!.Bounds.Top);
+        }
+
         [Theory]
         [InlineData(0d, 10)]
         [InlineData(0.5d, 20)]  // Buffer factor of 0.5. Since at start there is no room, the 10 additional items are just appended

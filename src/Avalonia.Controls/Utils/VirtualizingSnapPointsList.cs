@@ -17,16 +17,18 @@ namespace Avalonia.Controls.Utils
         private readonly Orientation _parentOrientation;
         private readonly SnapPointsAlignment _snapPointsAlignment;
         private readonly double _size;
+        private readonly double _spacing;
         private readonly int _start = -1;
         private readonly int _end;
 
-        public VirtualizingSnapPointsList(RealizedStackElements realizedElements, int count, Orientation orientation, Orientation parentOrientation, SnapPointsAlignment snapPointsAlignment, double size)
+        public VirtualizingSnapPointsList(RealizedStackElements realizedElements, int count, Orientation orientation, Orientation parentOrientation, SnapPointsAlignment snapPointsAlignment, double size, double spacing)
         {
             _realizedElements = realizedElements;
             _orientation = orientation;
             _parentOrientation = parentOrientation;
             _snapPointsAlignment = snapPointsAlignment;
             _size = size;
+            _spacing = spacing;
             if (parentOrientation == orientation)
             {
                 _start = Math.Max(0, _realizedElements.FirstIndex - ExtraCount);
@@ -44,7 +46,7 @@ namespace Avalonia.Controls.Utils
                 index += _start;
 
                 double snapPoint = 0;
-                var averageElementSize = _size;
+                var averageElementSize = _size + _spacing;
 
                 Control? container;
                 switch (_orientation)
@@ -77,10 +79,10 @@ namespace Avalonia.Controls.Utils
                             switch (_snapPointsAlignment)
                             {
                                 case SnapPointsAlignment.Center:
-                                    snapPoint += averageElementSize / 2;
+                                    snapPoint += _size / 2;
                                     break;
                                 case SnapPointsAlignment.Far:
-                                    snapPoint += averageElementSize;
+                                    snapPoint += _size;
                                     break;
                             }
                             if (index > _realizedElements.LastIndex)
@@ -121,10 +123,10 @@ namespace Avalonia.Controls.Utils
                             switch (_snapPointsAlignment)
                             {
                                 case SnapPointsAlignment.Center:
-                                    snapPoint += averageElementSize / 2;
+                                    snapPoint += _size / 2;
                                     break;
                                 case SnapPointsAlignment.Far:
-                                    snapPoint += averageElementSize;
+                                    snapPoint += _size;
                                     break;
                             }
                             if (index > _realizedElements.LastIndex)
