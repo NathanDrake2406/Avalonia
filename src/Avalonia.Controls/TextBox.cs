@@ -371,6 +371,7 @@ namespace Avalonia.Controls
         {
             ExternalReplacement,
             Edit,
+            TextInput,
             InternalSynchronization,
         }
 
@@ -393,6 +394,8 @@ namespace Avalonia.Controls
         private (int Start, int End) _selectionAtPointerPress;
         private int _selectedTextChangesMadeSinceLastUndoSnapshot;
         private bool _hasDoneSnapshotOnce;
+        private bool _hasTextInputSinceLastUndoSnapshot;
+        private int _caretIndexAfterLastTextInput;
         private int _currentClickCount;
         private bool _isDoubleTapped;
         private bool _isInTouchMode;
@@ -665,10 +668,19 @@ namespace Avalonia.Controls
                     case TextMutationKind.Edit:
                         SnapshotUndoRedo();
 
-                        if (!_undoRedoHelper.CanUndo &&
-                            !string.Equals(Text, value, StringComparison.Ordinal))
+                        if (!string.Equals(Text, value, StringComparison.Ordinal))
                         {
                             _needsUndoRedoSnapshotAfterTextChange = true;
+                        }
+                        break;
+
+                    case TextMutationKind.TextInput:
+                        if (IsUndoEnabled &&
+                            UndoLimit is -1 or > 1 &&
+                            !string.Equals(Text, value, StringComparison.Ordinal))
+                        {
+                            _hasTextInputSinceLastUndoSnapshot = true;
+                            CanUndo = true;
                         }
                         break;
 
@@ -1211,8 +1223,12 @@ namespace Avalonia.Controls
                 return;
             }
 
+            var isOwnUndoStep = input.Length > 1;
+
             _selectedTextChangesMadeSinceLastUndoSnapshot++;
-            SnapshotUndoRedo(ignoreChangeCount: false);
+            SnapshotUndoRedo(ignoreChangeCount: isOwnUndoStep ||
+                SelectionStart != SelectionEnd ||
+                CaretIndex != _caretIndexAfterLastTextInput);
 
             var currentText = Text ?? string.Empty;
             var selectionLength = Math.Abs(SelectionStart - SelectionEnd);
@@ -1244,7 +1260,7 @@ namespace Avalonia.Controls
 
                 var text = StringBuilderCache.GetStringAndRelease(textBuilder);
 
-                SetTextFromEdit(text);
+                SetTextCore(text, TextMutationKind.TextInput);
 
                 ClearSelection();
 
@@ -1262,6 +1278,13 @@ namespace Avalonia.Controls
                 _presenter?.MoveCaretToTextPosition(caretIndex);
 
                 SetCurrentValue(CaretIndexProperty, caretIndex);
+
+                _caretIndexAfterLastTextInput = CaretIndex;
+
+                if (isOwnUndoStep)
+                {
+                    SnapshotUndoRedo();
+                }
             }
         }
 
@@ -2671,6 +2694,7 @@ namespace Avalonia.Controls
                     (!ignoreChangeCount &&
                         _selectedTextChangesMadeSinceLastUndoSnapshot >= _maxCharsBeforeUndoSnapshot))
                 {
+                    _hasTextInputSinceLastUndoSnapshot = false;
                     _undoRedoHelper.Snapshot();
                     _selectedTextChangesMadeSinceLastUndoSnapshot = 0;
                     _hasDoneSnapshotOnce = true;
@@ -2680,6 +2704,7 @@ namespace Avalonia.Controls
 
         private void ClearUndoRedo()
         {
+            _hasTextInputSinceLastUndoSnapshot = false;
             _undoRedoHelper.Clear();
             _selectedTextChangesMadeSinceLastUndoSnapshot = 0;
             _hasDoneSnapshotOnce = false;
@@ -2731,7 +2756,7 @@ namespace Avalonia.Controls
         /// </summary>
         void UndoRedoHelper<UndoRedoState>.IUndoRedoHost.OnUndoStackChanged()
         {
-            CanUndo = _undoRedoHelper.CanUndo;
+            CanUndo = _undoRedoHelper.CanUndo || _hasTextInputSinceLastUndoSnapshot;
         }
 
         /// <summary>
