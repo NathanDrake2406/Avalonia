@@ -1405,6 +1405,245 @@ namespace Avalonia.Controls.UnitTests
         }
 
         [Fact]
+        public void Undo_Should_Revert_Typing_By_Word()
+        {
+            using (UnitTestApplication.Start(Services))
+            {
+                var tb = new TextBox
+                {
+                    Template = CreateTemplate(),
+                };
+
+                tb.Measure(Size.Infinity);
+
+                TypeText(tb, "The quick fox");
+
+                Assert.True(tb.CanUndo);
+
+                tb.Undo();
+                Assert.Equal("The quick", tb.Text);
+                Assert.Equal(9, tb.CaretIndex);
+
+                tb.Undo();
+                Assert.Equal("The", tb.Text);
+
+                tb.Undo();
+                Assert.Null(tb.Text);
+                Assert.False(tb.CanUndo);
+
+                tb.Redo();
+                Assert.Equal("The", tb.Text);
+            }
+        }
+
+        [Fact]
+        public void Undo_Should_Revert_Single_Typed_Character()
+        {
+            using (UnitTestApplication.Start(Services))
+            {
+                var tb = new TextBox
+                {
+                    Template = CreateTemplate(),
+                };
+
+                tb.Measure(Size.Infinity);
+
+                TypeText(tb, "a");
+
+                Assert.True(tb.CanUndo);
+
+                tb.Undo();
+
+                Assert.Null(tb.Text);
+                Assert.False(tb.CanUndo);
+                Assert.True(tb.CanRedo);
+            }
+        }
+
+        [Fact]
+        public void Typing_After_Undoing_Everything_Should_Be_Undoable()
+        {
+            using (UnitTestApplication.Start(Services))
+            {
+                var tb = new TextBox
+                {
+                    Template = CreateTemplate(),
+                };
+
+                tb.Measure(Size.Infinity);
+
+                TypeText(tb, "foo");
+                tb.Undo();
+                TypeText(tb, "bar");
+
+                Assert.True(tb.CanUndo);
+                Assert.False(tb.CanRedo);
+
+                tb.Undo();
+
+                Assert.Null(tb.Text);
+                Assert.False(tb.CanUndo);
+            }
+        }
+
+        [Fact]
+        public void Undo_Should_Split_Long_Words_Every_Seven_Characters()
+        {
+            using (UnitTestApplication.Start(Services))
+            {
+                var tb = new TextBox
+                {
+                    Template = CreateTemplate(),
+                };
+
+                tb.Measure(Size.Infinity);
+
+                TypeText(tb, "abcdefghij");
+
+                tb.Undo();
+                Assert.Equal("abcdefg", tb.Text);
+
+                tb.Undo();
+                Assert.Null(tb.Text);
+            }
+        }
+
+        [Fact]
+        public void Moving_Caret_Should_Start_New_Undo_Step()
+        {
+            using (UnitTestApplication.Start(Services))
+            {
+                var tb = new TextBox
+                {
+                    Template = CreateTemplate(),
+                };
+
+                tb.Measure(Size.Infinity);
+
+                TypeText(tb, "foo");
+                tb.CaretIndex = 0;
+                TypeText(tb, "bar");
+
+                Assert.Equal("barfoo", tb.Text);
+
+                tb.Undo();
+                Assert.Equal("foo", tb.Text);
+            }
+        }
+
+        [Fact]
+        public void Typing_Over_Selection_Should_Start_New_Undo_Step()
+        {
+            using (UnitTestApplication.Start(Services))
+            {
+                var tb = new TextBox
+                {
+                    Template = CreateTemplate(),
+                };
+
+                tb.Measure(Size.Infinity);
+
+                TypeText(tb, "foo");
+                tb.SelectionStart = 1;
+                tb.SelectionEnd = 3;
+                TypeText(tb, "x");
+
+                Assert.Equal("fx", tb.Text);
+
+                tb.Undo();
+                Assert.Equal("foo", tb.Text);
+            }
+        }
+
+        [Fact]
+        public void Typing_After_Clear_Should_Start_New_Undo_Step()
+        {
+            using (UnitTestApplication.Start(Services))
+            {
+                var tb = new TextBox
+                {
+                    Template = CreateTemplate(),
+                };
+
+                tb.Measure(Size.Infinity);
+
+                TypeText(tb, "foo");
+                tb.Clear();
+                TypeText(tb, "bar");
+
+                tb.Undo();
+                Assert.Equal("", tb.Text);
+
+                tb.Undo();
+                Assert.Equal("foo", tb.Text);
+            }
+        }
+
+        [Fact]
+        public void Multiple_Character_Input_Should_Be_Its_Own_Undo_Step()
+        {
+            using (UnitTestApplication.Start(Services))
+            {
+                var tb = new TextBox
+                {
+                    Template = CreateTemplate(),
+                };
+
+                tb.Measure(Size.Infinity);
+
+                TypeText(tb, "foo");
+                RaiseTextEvent(tb, "PASTED");
+                TypeText(tb, "bar");
+
+                Assert.Equal("fooPASTEDbar", tb.Text);
+
+                tb.Undo();
+                Assert.Equal("fooPASTED", tb.Text);
+
+                tb.Undo();
+                Assert.Equal("foo", tb.Text);
+            }
+        }
+
+        [Fact]
+        public void Typing_Should_Not_Enable_Undo_When_UndoLimit_Leaves_No_Room()
+        {
+            using (UnitTestApplication.Start(Services))
+            {
+                var tb = new TextBox
+                {
+                    Template = CreateTemplate(),
+                    UndoLimit = 1,
+                };
+
+                tb.Measure(Size.Infinity);
+
+                TypeText(tb, "foo");
+
+                Assert.False(tb.CanUndo);
+            }
+        }
+
+        [Fact]
+        public void Typing_Should_Not_Enable_Undo_When_Undo_Is_Disabled()
+        {
+            using (UnitTestApplication.Start(Services))
+            {
+                var tb = new TextBox
+                {
+                    Template = CreateTemplate(),
+                    IsUndoEnabled = false,
+                };
+
+                tb.Measure(Size.Infinity);
+
+                TypeText(tb, "foo");
+
+                Assert.False(tb.CanUndo);
+            }
+        }
+
+        [Fact]
         public void Binding_Source_Change_Clears_Undo_History()
         {
             using (UnitTestApplication.Start(Services))
@@ -2880,6 +3119,19 @@ namespace Avalonia.Controls.UnitTests
                 RoutedEvent = InputElement.TextInputEvent,
                 Text = text
             });
+        }
+
+        private static void TypeText(TextBox textBox, string text)
+        {
+            foreach (var c in text)
+            {
+                if (c == ' ')
+                {
+                    RaiseKeyEvent(textBox, Key.Space, KeyModifiers.None);
+                }
+
+                RaiseTextEvent(textBox, c.ToString());
+            }
         }
 
         private class Class1 : NotifyingBase
